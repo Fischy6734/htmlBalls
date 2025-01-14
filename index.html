@@ -11,7 +11,11 @@
             margin: 0;
             padding: 20px;
             background-color: #f4f4f4;
-            color: #000; /* Set text color to black */
+            transition: background-color 0.3s, color 0.3s;
+        }
+        body.dark-mode {
+            background-color: #1e1e1e;
+            color: #f4f4f4;
         }
         header {
             margin-bottom: 20px;
@@ -21,12 +25,27 @@
         }
         textarea, input[type="file"] {
             width: 100%;
-            height: 150px;
             margin-bottom: 10px;
         }
         button {
             padding: 10px 15px;
             margin-right: 10px;
+            cursor: pointer;
+        }
+        #sidebar {
+            width: 200px;
+            float: left;
+            margin-right: 20px;
+        }
+        #main-content {
+            overflow: hidden;
+        }
+        #outputFrame {
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ccc;
+        }
+        .project-title {
             cursor: pointer;
         }
     </style>
@@ -35,59 +54,69 @@
 
 <header>
     <h1>Online HTML Editor</h1>
+    <button id="darkModeToggle">Toggle Dark Mode</button>
 </header>
 
-<section>
-    <h2>HTML</h2>
-    <textarea id="htmlInput" placeholder="Write your HTML code here..."></textarea>
-    <input type="file" id="htmlFileInput" accept=".html" />
-</section>
+<div id="sidebar">
+    <h2>Projects</h2>
+    <div id="projectList"></div>
+    <button id="newProjectBtn">New Project</button>
+</div>
 
-<section>
-    <h2>CSS</h2>
-    <input type="text" id="cssFileName" placeholder="CSS File Name (without extension)">
-    <textarea id="cssInput" placeholder="Write your CSS code here..."></textarea>
-    <input type="file" id="cssFileInput" accept=".css" />
-</section>
+<div id="main-content">
+    <section>
+        <h2>HTML</h2>
+        <textarea id="htmlInput" placeholder="Write your HTML code here..."></textarea>
+    </section>
 
-<section>
-    <h2>JavaScript</h2>
-    <input type="text" id="jsFileName" placeholder="JavaScript File Name (without extension)">
-    <textarea id="jsInput" placeholder="Write your JavaScript code here..."></textarea>
-    <input type="file" id="jsFileInput" accept=".js" />
-</section>
+    <section>
+        <h2>CSS</h2>
+        <input type="text" id="cssFileName" placeholder="CSS File Name (without extension)">
+        <textarea id="cssInput" placeholder="Write your CSS code here..."></textarea>
+        <input type="file" id="fontInput" accept=".otf" />
+        <button id="addFontBtn">Add OTF Font</button>
+    </section>
 
-<section>
-    <h2>Add Custom Font (OTF)</h2>
-    <input type="file" id="fontInput" accept=".otf" />
-    <button id="addFontBtn">Add Font</button>
-</section>
+    <section>
+        <h2>JavaScript</h2>
+        <input type="text" id="jsFileName" placeholder="JavaScript File Name (without extension)">
+        <textarea id="jsInput" placeholder="Write your JavaScript code here..."></textarea>
+    </section>
 
-<button id="downloadBtn">Download Files</button>
-<button id="addMoreBtn">Add More HTML/CSS</button>
+    <button id="downloadBtn">Download Files</button>
+    <button id="importBtn">Import Files</button>
+    <button id="addMoreBtn">Add More HTML/CSS</button>
 
-<section>
-    <h2>Output</h2>
-    <iframe id="outputFrame" style="width: 100%; height: 300px; border: 1px solid #ccc;"></iframe>
-</section>
+    <section>
+        <h2>Output</h2>
+        <iframe id="outputFrame"></iframe>
+    </section>
+</div>
 
 <script>
+    // Toggle Dark Mode
+    document.getElementById('darkModeToggle').addEventListener('click', () => {
+        document.body.classList.toggle('dark-mode');
+    });
+
     // Save progress to local storage
     function saveProgress() {
-        localStorage.setItem('htmlContent', document.getElementById('htmlInput').value);
-        localStorage.setItem('cssContent', document.getElementById('cssInput').value);
-        localStorage.setItem('jsContent', document.getElementById('jsInput').value);
-        localStorage.setItem('cssFileName', document.getElementById('cssFileName').value);
-        localStorage.setItem('jsFileName', document.getElementById('jsFileName').value);
+        const projectName = document.getElementById('projectTitle').innerText || 'Untitled';
+        localStorage.setItem(`${projectName}_html`, document.getElementById('htmlInput').value);
+        localStorage.setItem(`${projectName}_css`, document.getElementById('cssInput').value);
+        localStorage.setItem(`${projectName}_js`, document.getElementById('jsInput').value);
+        localStorage.setItem(`${projectName}_cssFileName`, document.getElementById('cssFileName').value);
+        localStorage.setItem(`${projectName}_jsFileName`, document.getElementById('jsFileName').value);
     }
 
     // Load progress from local storage
-    function loadProgress() {
-        document.getElementById('htmlInput').value = localStorage.getItem('htmlContent') || '';
-        document.getElementById('cssInput').value = localStorage.getItem('cssContent') || '';
-        document.getElementById('jsInput').value = localStorage.getItem('jsContent') || '';
-        document.getElementById('cssFileName').value = localStorage.getItem('cssFileName') || '';
-        document.getElementById('jsFileName').value = localStorage.getItem('jsFileName') || '';
+    function loadProgress(projectName) {
+        document.getElementById('htmlInput').value = localStorage.getItem(`${projectName}_html`) || '';
+        document.getElementById('cssInput').value = localStorage.getItem(`${projectName}_css`) || '';
+        document.getElementById('jsInput').value = localStorage.getItem(`${projectName}_js`) || '';
+        document.getElementById('cssFileName').value = localStorage.getItem(`${projectName}_cssFileName`) || '';
+        document.getElementById('jsFileName').value = localStorage.getItem(`${projectName}_jsFileName`) || '';
+        updateOutput();
     }
 
     // Update output frame
@@ -109,13 +138,12 @@
         const jsContent = document.getElementById('jsInput').value;
         const cssFileName = document.getElementById('cssFileName').value || 'style';
         const jsFileName = document.getElementById('jsFileName').value || 'script';
-
-        let footer = '\n<!-- Made with HTML Balls -->';
+        
         const zip = new JSZip();
-        zip.file('index.html', htmlContent + footer);
+        zip.file('index.html', htmlContent);
         if (cssContent) zip.file(`${cssFileName}.css`, cssContent);
         if (jsContent) zip.file(`${jsFileName}.js`, jsContent);
-
+        
         zip.generateAsync({ type: "blob" }).then(function(content) {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(content);
@@ -124,7 +152,52 @@
         });
     });
 
-    // Add custom font
+    // Import files
+    document.getElementById('importBtn').addEventListener('click', () => {
+        const htmlFile = document.createElement('input');
+        htmlFile.type = 'file';
+        htmlFile.accept = '.html';
+        htmlFile.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.getElementById('htmlInput').value = reader.result;
+                updateOutput();
+            };
+            reader.readAsText(file);
+        };
+        htmlFile.click();
+
+        const cssFile = document.createElement('input');
+        cssFile.type = 'file';
+        cssFile.accept = '.css';
+        cssFile.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.getElementById('cssInput').value = reader.result;
+                updateOutput();
+            };
+            reader.readAsText(file);
+        };
+        cssFile.click();
+
+        const jsFile = document.createElement('input');
+        jsFile.type = 'file';
+        jsFile.accept = '.js';
+        jsFile.onchange = e => {
+            const file = e.target.files[0];
+            const reader = new FileReader();
+            reader.onload = () => {
+                document.getElementById('jsInput').value = reader.result;
+                updateOutput();
+            };
+            reader.readAsText(file);
+        };
+        jsFile.click();
+    });
+
+    // Add OTF font
     document.getElementById('addFontBtn').addEventListener('click', () => {
         const fontInput = document.getElementById('fontInput');
         if (fontInput.files.length === 0) {
@@ -132,56 +205,42 @@
             return;
         }
 
-        const confirmAddFont = confirm('Are you sure you want to add this font?');
-        if (confirmAddFont) {
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                const fontFace = `@font-face {
-                    font-family: 'CustomFont';
-                    src: url('${event.target.result}');
-                }`;
-                document.getElementById('cssInput').value += fontFace + '\n';
-                updateOutput();
-            };
-            reader.readAsDataURL(fontInput.files[0]);
-        }
+        const fontFile = fontInput.files[0];
+        const fontName = prompt("Enter a name for the font:");
+        if (!fontName) return;
+
+        const reader = new FileReader();
+        reader.onload = () => {
+            const fontFace = `
+                @font-face {
+                    font-family: '${fontName}';
+                    src: url('${reader.result}') format('opentype');
+                }
+            `;
+            document.getElementById('cssInput').value += fontFace;
+            updateOutput();
+        };
+        reader.readAsDataURL(fontFile);
     });
 
-    // File import functionality
-    document.getElementById('htmlFileInput').addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('htmlInput').value = e.target.result;
-                updateOutput();
-            };
-            reader.readAsText(file);
-        }
-    });
+    // New Project functionality
+    document.getElementById('newProjectBtn').addEventListener('click', () => {
+        const projectName = prompt("Enter project name:");
+        if (!projectName) return;
 
-    document.getElementById('cssFileInput').addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('cssInput').value = e.target.result;
-                updateOutput();
-            };
-            reader.readAsText(file);
-        }
-    });
+        const projectItem = document.createElement('div');
+        projectItem.className = 'project-title';
+        projectItem.innerText = projectName;
+        projectItem.onclick = () => loadProgress(projectName);
+        document.getElementById('projectList').appendChild(projectItem);
 
-    document.getElementById('jsFileInput').addEventListener('change', (event) => {
-        const file = event.target.files[0];
-        if (file) {
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                document.getElementById('jsInput').value = e.target.result;
-                updateOutput();
-            };
-            reader.readAsText(file);
-        }
+        // Reset inputs
+        document.getElementById('htmlInput').value = '';
+        document.getElementById('cssInput').value = '';
+        document.getElementById('jsInput').value = '';
+        document.getElementById('cssFileName').value = '';
+        document.getElementById('jsFileName').value = '';
+        updateOutput();
     });
 
     // Event listeners for input changes
@@ -190,7 +249,21 @@
     });
 
     // Load progress on page load
-    window.onload = loadProgress;
+    window.onload = () => {
+        // Load existing projects from localStorage if any
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key.endsWith('_html')) {
+                const projectName = key.split('_')[0];
+                const projectItem = document.createElement('div');
+                projectItem.className = 'project-title';
+                projectItem.innerText = projectName;
+                projectItem.onclick = () => loadProgress(projectName);
+                document.getElementById('projectList').appendChild(projectItem);
+            }
+        }
+    };
+
     window.onbeforeunload = saveProgress;
 </script>
 
