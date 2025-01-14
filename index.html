@@ -11,6 +11,7 @@
             margin: 0;
             padding: 20px;
             background-color: #f4f4f4;
+            color: #000; /* Set text color to black */
         }
         header {
             margin-bottom: 20px;
@@ -18,7 +19,7 @@
         section {
             margin-bottom: 20px;
         }
-        textarea {
+        textarea, input[type="file"] {
             width: 100%;
             height: 150px;
             margin-bottom: 10px;
@@ -39,37 +40,38 @@
 <section>
     <h2>HTML</h2>
     <textarea id="htmlInput" placeholder="Write your HTML code here..."></textarea>
+    <input type="file" id="htmlFileInput" accept=".html" />
 </section>
 
 <section>
     <h2>CSS</h2>
     <input type="text" id="cssFileName" placeholder="CSS File Name (without extension)">
     <textarea id="cssInput" placeholder="Write your CSS code here..."></textarea>
+    <input type="file" id="cssFileInput" accept=".css" />
 </section>
 
 <section>
     <h2>JavaScript</h2>
     <input type="text" id="jsFileName" placeholder="JavaScript File Name (without extension)">
     <textarea id="jsInput" placeholder="Write your JavaScript code here..."></textarea>
+    <input type="file" id="jsFileInput" accept=".js" />
 </section>
 
 <section>
-    <h2>Add Custom Font</h2>
-    <input type="file" id="fontInput" accept=".oft">
+    <h2>Add Custom Font (OTF)</h2>
+    <input type="file" id="fontInput" accept=".otf" />
     <button id="addFontBtn">Add Font</button>
 </section>
+
+<button id="downloadBtn">Download Files</button>
+<button id="addMoreBtn">Add More HTML/CSS</button>
 
 <section>
     <h2>Output</h2>
     <iframe id="outputFrame" style="width: 100%; height: 300px; border: 1px solid #ccc;"></iframe>
 </section>
 
-<button id="downloadBtn">Download Files</button>
-<button id="addMoreBtn">Add More HTML/CSS</button>
-
 <script>
-    let addedFonts = [];
-
     // Save progress to local storage
     function saveProgress() {
         localStorage.setItem('htmlContent', document.getElementById('htmlInput').value);
@@ -77,7 +79,6 @@
         localStorage.setItem('jsContent', document.getElementById('jsInput').value);
         localStorage.setItem('cssFileName', document.getElementById('cssFileName').value);
         localStorage.setItem('jsFileName', document.getElementById('jsFileName').value);
-        localStorage.setItem('addedFonts', JSON.stringify(addedFonts));
     }
 
     // Load progress from local storage
@@ -87,7 +88,6 @@
         document.getElementById('jsInput').value = localStorage.getItem('jsContent') || '';
         document.getElementById('cssFileName').value = localStorage.getItem('cssFileName') || '';
         document.getElementById('jsFileName').value = localStorage.getItem('jsFileName') || '';
-        addedFonts = JSON.parse(localStorage.getItem('addedFonts')) || [];
     }
 
     // Update output frame
@@ -95,33 +95,11 @@
         const html = document.getElementById('htmlInput').value;
         const css = `<style>${document.getElementById('cssInput').value}</style>`;
         const js = document.getElementById('jsInput').value;
-        const fontImports = addedFonts.map(font => `@font-face { font-family: '${font.name}'; src: url('${font.url}'); }`).join('\n');
         const outputFrame = document.getElementById('outputFrame').contentWindow.document;
         outputFrame.open();
-        outputFrame.write(html + fontImports + css + `<script>${js}<\/script>`);
+        outputFrame.write(html + css + `<script>${js}<\/script>`);
         outputFrame.close();
     }
-
-    // Add custom font
-    document.getElementById('addFontBtn').addEventListener('click', () => {
-        const fontInput = document.getElementById('fontInput');
-        if (fontInput.files.length > 0) {
-            const fontFile = fontInput.files[0];
-            const fontName = prompt("Please enter a name for the font:");
-            if (fontName) {
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    addedFonts.push({ name: fontName, url: event.target.result });
-                    alert("Font added successfully!");
-                    updateOutput();
-                    saveProgress();
-                };
-                reader.readAsDataURL(fontFile);
-            }
-        } else {
-            alert("Please select a font file.");
-        }
-    });
 
     // Download files
     document.getElementById('downloadBtn').addEventListener('click', () => {
@@ -132,14 +110,12 @@
         const cssFileName = document.getElementById('cssFileName').value || 'style';
         const jsFileName = document.getElementById('jsFileName').value || 'script';
 
+        let footer = '\n<!-- Made with HTML Balls -->';
         const zip = new JSZip();
-        zip.file('index.html', `${htmlContent}\n<!-- Made with HTML Balls -->`);
+        zip.file('index.html', htmlContent + footer);
         if (cssContent) zip.file(`${cssFileName}.css`, cssContent);
         if (jsContent) zip.file(`${jsFileName}.js`, jsContent);
-        addedFonts.forEach(font => {
-            zip.file(`${font.name}.oft`, font.url.split(',')[1], { base64: true });
-        });
-        
+
         zip.generateAsync({ type: "blob" }).then(function(content) {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(content);
@@ -148,9 +124,64 @@
         });
     });
 
-    // Add more HTML/CSS functionality (placeholder)
-    document.getElementById('addMoreBtn').addEventListener('click', () => {
-        alert('Add more functionality here.');
+    // Add custom font
+    document.getElementById('addFontBtn').addEventListener('click', () => {
+        const fontInput = document.getElementById('fontInput');
+        if (fontInput.files.length === 0) {
+            alert('Please select a font file.');
+            return;
+        }
+
+        const confirmAddFont = confirm('Are you sure you want to add this font?');
+        if (confirmAddFont) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const fontFace = `@font-face {
+                    font-family: 'CustomFont';
+                    src: url('${event.target.result}');
+                }`;
+                document.getElementById('cssInput').value += fontFace + '\n';
+                updateOutput();
+            };
+            reader.readAsDataURL(fontInput.files[0]);
+        }
+    });
+
+    // File import functionality
+    document.getElementById('htmlFileInput').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('htmlInput').value = e.target.result;
+                updateOutput();
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    document.getElementById('cssFileInput').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('cssInput').value = e.target.result;
+                updateOutput();
+            };
+            reader.readAsText(file);
+        }
+    });
+
+    document.getElementById('jsFileInput').addEventListener('change', (event) => {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('jsInput').value = e.target.result;
+                updateOutput();
+            };
+            reader.readAsText(file);
+        }
     });
 
     // Event listeners for input changes
