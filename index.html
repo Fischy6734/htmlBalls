@@ -18,9 +18,8 @@
         section {
             margin-bottom: 20px;
         }
-        textarea {
+        textarea, input[type="file"] {
             width: 100%;
-            height: 150px;
             margin-bottom: 10px;
         }
         button {
@@ -39,18 +38,26 @@
 <section>
     <h2>HTML</h2>
     <textarea id="htmlInput" placeholder="Write your HTML code here..."></textarea>
+    <input type="file" id="htmlFileInput" accept=".html">
 </section>
 
 <section>
     <h2>CSS</h2>
     <input type="text" id="cssFileName" placeholder="CSS File Name (without extension)">
     <textarea id="cssInput" placeholder="Write your CSS code here..."></textarea>
+    <input type="file" id="cssFileInput" accept=".css">
 </section>
 
 <section>
     <h2>JavaScript</h2>
     <input type="text" id="jsFileName" placeholder="JavaScript File Name (without extension)">
     <textarea id="jsInput" placeholder="Write your JavaScript code here..."></textarea>
+    <input type="file" id="jsFileInput" accept=".js">
+</section>
+
+<section>
+    <h2>Custom Font</h2>
+    <input type="file" id="fontFileInput" accept=".otf">
 </section>
 
 <button id="downloadBtn">Download Files</button>
@@ -61,6 +68,7 @@
     <iframe id="outputFrame" style="width: 100%; height: 300px; border: 1px solid #ccc;"></iframe>
 </section>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script>
     // Save progress to local storage
     function saveProgress() {
@@ -91,6 +99,39 @@
         outputFrame.close();
     }
 
+    // Handle file imports
+    function handleFileInput(fileInput, callback) {
+        const file = fileInput.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                callback(event.target.result);
+            };
+            reader.readAsText(file);
+        }
+    }
+
+    document.getElementById('htmlFileInput').addEventListener('change', function() {
+        handleFileInput(this, function(content) {
+            document.getElementById('htmlInput').value = content;
+            updateOutput();
+        });
+    });
+
+    document.getElementById('cssFileInput').addEventListener('change', function() {
+        handleFileInput(this, function(content) {
+            document.getElementById('cssInput').value = content;
+            updateOutput();
+        });
+    });
+
+    document.getElementById('jsFileInput').addEventListener('change', function() {
+        handleFileInput(this, function(content) {
+            document.getElementById('jsInput').value = content;
+            updateOutput();
+        });
+    });
+
     // Download files
     document.getElementById('downloadBtn').addEventListener('click', () => {
         saveProgress();
@@ -99,12 +140,20 @@
         const jsContent = document.getElementById('jsInput').value;
         const cssFileName = document.getElementById('cssFileName').value || 'style';
         const jsFileName = document.getElementById('jsFileName').value || 'script';
-        
+        const fontFileInput = document.getElementById('fontFileInput').files[0];
+
         const zip = new JSZip();
         zip.file('index.html', htmlContent);
         if (cssContent) zip.file(`${cssFileName}.css`, cssContent);
         if (jsContent) zip.file(`${jsFileName}.js`, jsContent);
-        
+        if (fontFileInput) {
+            zip.file(fontFileInput.name, fontFileInput);
+        }
+
+        // Add caption to HTML
+        const caption = "<!-- Made with HTML balls -->\n";
+        zip.file('index.html', caption + htmlContent);
+
         zip.generateAsync({ type: "blob" }).then(function(content) {
             const a = document.createElement('a');
             a.href = URL.createObjectURL(content);
@@ -128,9 +177,6 @@
     window.onload = loadProgress;
     window.onbeforeunload = saveProgress;
 </script>
-
-<!-- Include JSZip for downloading files -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 
 </body>
 </html>
